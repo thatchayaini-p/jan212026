@@ -3,12 +3,6 @@ pipeline {
 
     stages {
 
-        stage('Clone Code') {
-            steps {
-                git 'https://github.com/thatchayaini-p/jan212026.git'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -27,3 +21,4 @@ pipeline {
         }
     }
 }
+
