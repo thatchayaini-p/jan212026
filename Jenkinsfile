@@ -17,16 +17,26 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'Building the application...'
-                // If you have a build step (like webpack, babel)
-                sh 'npm run build || echo "No build step defined"'
+                sh '''
+                if npm run | grep -q "build"; then
+                  npm run build
+                else
+                  echo "No build step defined"
+                fi
+                '''
             }
         }
 
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                // Run your test suite, exit if any test fails
-                sh 'npm test'
+                sh '''
+                if npm run | grep -q "test"; then
+                  npm test
+                else
+                  echo "No test step defined"
+                fi
+                '''
             }
         }
 
