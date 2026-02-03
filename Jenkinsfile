@@ -30,9 +30,9 @@ pipeline {
                 if [ -d "$APP_DIR" ]; then
                     rm -rf $BACKUP_DIR
                     cp -r $APP_DIR $BACKUP_DIR
-                    echo "✅ Backup created"
+                    echo "Backup created"
                 else
-                    echo "ℹ️ First deployment – no backup"
+                    echo "First deployment – no backup"
                 fi
                 '''
             }
@@ -54,13 +54,13 @@ pipeline {
                 if npm run | grep -q "build"; then
                     npm run build
                 else
-                    echo "ℹ️ No build script"
+                    echo "No build script found"
                 fi
                 '''
             }
         }
 
-        ✅ stage('Deploy on Port 3000') {
+        stage('Deploy on Port 3000') {
             steps {
                 sh '''
                 cd $APP_DIR
@@ -79,7 +79,7 @@ pipeline {
             steps {
                 script {
                     def decision = input(
-                        message: '⚠️ Rollback to previous version?',
+                        message: 'Rollback to previous version?',
                         parameters: [
                             choice(
                                 name: 'ROLLBACK',
@@ -98,7 +98,7 @@ pipeline {
                         pm2 save
                         '''
                     } else {
-                        echo "✅ Deployment confirmed"
+                        echo "Deployment confirmed"
                     }
                 }
             }
@@ -107,10 +107,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Node.js running successfully on PORT 3000"
+            echo "Node.js app running successfully on PORT 3000"
         }
         failure {
-            echo "❌ Deployment failed"
+            echo "Deployment failed"
         }
     }
 }
