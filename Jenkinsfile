@@ -2,62 +2,92 @@ pipeline {
     agent any
 
     environment {
-        NODE_ENV = 'production'
+        IMAGE_NAME      = "jan212026-node-app:latest"
+        STABLE_IMAGE    = "jan212026-node-app:stable"
+        CONTAINER_NAME  = "node-app-container"
+        APP_PORT        = "3000"
     }
 
     stages {
 
-        stage('Install Dependencies') {
+        stage('Checkout Code') {
             steps {
-                echo 'Installing npm dependencies...'
-                sh 'npm install'
+                git branch: 'main',
+                    url: 'https://github.com/thatchayaini-p/jan212026.git'
             }
         }
 
-        stage('Build') {
+        stage('Tag Current Image as Stable') {
             steps {
-                echo 'Building the application...'
                 sh '''
-                if npm run | grep -q "build"; then
-                  npm run build
+                if docker image inspect $IMAGE_NAME > /dev/null 2>&1; then
+                    docker tag $IMAGE_NAME $STABLE_IMAGE
+                    echo "✅ Previous version saved as STABLE"
                 else
-                  echo "No build step defined"
+                    echo "ℹ️ First deployment – no stable image"
                 fi
                 '''
             }
         }
 
-        stage('Test') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Running tests...'
                 sh '''
-                if npm run | grep -q "test"; then
-                  npm test
-                else
-                  echo "No test step defined"
-                fi
+                docker build -t $IMAGE_NAME .
                 '''
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy New Version') {
             steps {
-                echo 'Deploying application with PM2...'
                 sh '''
-                /usr/local/bin/pm2 stop nodeapp || true
-                /usr/local/bin/pm2 start app.js --name nodeapp
-                /usr/local/bin/pm2 save
+                docker rm -f $CONTAINER_NAME || true
+                docker run -d \
+                  -p $APP_PORT:$APP_PORT \
+                  --name $CONTAINER_NAME \
+                  $IMAGE_NAME
                 '''
+            }
+        }
+
+        stage('Rollback Approval') {
+            steps {
+                script {
+                    def decision = input(
+                        message: '⚠️ Rollback needed?',
+                        parameters: [
+                            choice(
+                                name: 'ROLLBACK',
+                                choices: ['No', 'Yes'],
+                                description: 'Rollback to previous stable version'
+                            )
+                        ]
+                    )
+
+                    if (decision == 'Yes') {
+                        echo "🔁 Rolling back to STABLE image..."
+
+                        sh '''
+                        docker rm -f $CONTAINER_NAME || true
+                        docker run -d \
+                          -p $APP_PORT:$APP_PORT \
+                          --name $CONTAINER_NAME \
+                          $STABLE_IMAGE
+                        '''
+                    } else {
+                        echo "✅ New version retained"
+                    }
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'Deployment succeeded!'
+            echo "🎉 Deployment pipeline completed"
         }
         failure {
-            echo 'Deployment failed. Check the logs!'
+            echo "❌ Pipeline failed – check logs"
         }
     }
 }
