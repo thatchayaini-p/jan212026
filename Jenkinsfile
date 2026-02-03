@@ -2,38 +2,55 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME      = "jan212026-node-app:latest"
-        STABLE_IMAGE    = "jan212026-node-app:stable"
-        CONTAINER_NAME  = "node-app-container"
-        APP_PORT        = "3000"
+        APP_DIR     = "/var/www/nodeapp"
+        BACKUP_DIR  = "/var/www/nodeapp_backup"
+        PM2_APP     = "nodeapp"
+        NODE_ENV    = "production"
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/thatchayaini-p/jan212026.git'
+                sh '''
+                rm -rf $APP_DIR
+                git clone -b main https://github.com/thatchayaini-p/jan212026.git $APP_DIR
+                '''
             }
         }
 
-        stage('Tag Current Image as Stable') {
+        stage('Backup Current Version') {
             steps {
                 sh '''
-                if docker image inspect $IMAGE_NAME > /dev/null 2>&1; then
-                    docker tag $IMAGE_NAME $STABLE_IMAGE
-                    echo "✅ Previous version saved as STABLE"
+                if [ -d "$APP_DIR" ]; then
+                    rm -rf $BACKUP_DIR
+                    cp -r $APP_DIR $BACKUP_DIR
+                    echo "✅ Backup created"
                 else
-                    echo "ℹ️ First deployment – no stable image"
+                    echo "ℹ️ First deployment – no backup"
                 fi
                 '''
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Install Dependencies') {
             steps {
                 sh '''
-                docker build -t $IMAGE_NAME .
+                cd $APP_DIR
+                npm install
+                '''
+            }
+        }
+
+        stage('Build App (Optional)') {
+            steps {
+                sh '''
+                cd $APP_DIR
+                if npm run | grep -q "build"; then
+                    npm run build
+                else
+                    echo "ℹ️ No build script"
+                fi
                 '''
             }
         }
@@ -41,11 +58,9 @@ pipeline {
         stage('Deploy New Version') {
             steps {
                 sh '''
-                docker rm -f $CONTAINER_NAME || true
-                docker run -d \
-                  -p $APP_PORT:$APP_PORT \
-                  --name $CONTAINER_NAME \
-                  $IMAGE_NAME
+                pm2 stop $PM2_APP || true
+                pm2 start $APP_DIR/app.js --name $PM2_APP
+                pm2 save
                 '''
             }
         }
@@ -54,28 +69,28 @@ pipeline {
             steps {
                 script {
                     def decision = input(
-                        message: '⚠️ Rollback needed?',
+                        message: '⚠️ Rollback to previous version?',
                         parameters: [
                             choice(
                                 name: 'ROLLBACK',
                                 choices: ['No', 'Yes'],
-                                description: 'Rollback to previous stable version'
+                                description: 'Rollback using backup'
                             )
                         ]
                     )
 
                     if (decision == 'Yes') {
-                        echo "🔁 Rolling back to STABLE image..."
+                        echo "🔁 Rolling back..."
 
                         sh '''
-                        docker rm -f $CONTAINER_NAME || true
-                        docker run -d \
-                          -p $APP_PORT:$APP_PORT \
-                          --name $CONTAINER_NAME \
-                          $STABLE_IMAGE
+                        pm2 stop $PM2_APP || true
+                        rm -rf $APP_DIR
+                        cp -r $BACKUP_DIR $APP_DIR
+                        pm2 start $APP_DIR/app.js --name $PM2_APP
+                        pm2 save
                         '''
                     } else {
-                        echo "✅ New version retained"
+                        echo "✅ Deployment confirmed"
                     }
                 }
             }
@@ -84,10 +99,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Deployment pipeline completed"
+            echo "🎉 Node.js deployment successful"
         }
         failure {
-            echo "❌ Pipeline failed – check logs"
+            echo "❌ Deployment failed – rollback available"
         }
     }
 }
