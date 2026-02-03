@@ -10,6 +10,7 @@ pipeline {
         BACKUP_DIR  = "${WORKSPACE}/nodeapp_backup"
         PM2_APP     = "nodeapp"
         NODE_ENV    = "production"
+        PORT        = "3000"
     }
 
     stages {
@@ -41,7 +42,7 @@ pipeline {
             steps {
                 sh '''
                 cd $APP_DIR
-                npm install
+                npm ci
                 '''
             }
         }
@@ -59,9 +60,12 @@ pipeline {
             }
         }
 
-        stage('Deploy New Version') {
+        stage('Deploy on Port 3000') {
             steps {
                 sh '''
+                echo "PORT=3000" > $APP_DIR/.env
+                echo "NODE_ENV=production" >> $APP_DIR/.env
+
                 pm2 stop $PM2_APP || true
                 pm2 start $APP_DIR/app.js --name $PM2_APP
                 pm2 save
@@ -84,8 +88,6 @@ pipeline {
                     )
 
                     if (decision == 'Yes') {
-                        echo "🔁 Rolling back..."
-
                         sh '''
                         pm2 stop $PM2_APP || true
                         rm -rf $APP_DIR
@@ -103,10 +105,10 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Node.js deployment successful"
+            echo "🎉 Node.js running successfully on PORT 3000"
         }
         failure {
-            echo "❌ Deployment failed – rollback available"
+            echo "❌ Deployment failed"
         }
     }
 }
