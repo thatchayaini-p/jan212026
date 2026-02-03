@@ -51,11 +51,7 @@ pipeline {
             steps {
                 sh '''
                 cd $APP_DIR
-                if npm run | grep -q "build"; then
-                    npm run build
-                else
-                    echo "No build script found"
-                fi
+                npm run build || echo "No build script found"
                 '''
             }
         }
@@ -64,13 +60,13 @@ pipeline {
             steps {
                 sh '''
                 cd $APP_DIR
-
                 echo "PORT=3000" > .env
                 echo "NODE_ENV=production" >> .env
 
                 pm2 delete $PM2_APP || true
                 pm2 start app.js --name $PM2_APP --update-env
                 pm2 save
+                pm2 flush
                 '''
             }
         }
@@ -94,8 +90,11 @@ pipeline {
                         pm2 delete $PM2_APP || true
                         rm -rf $APP_DIR
                         cp -r $BACKUP_DIR $APP_DIR
-                        pm2 start $APP_DIR/app.js --name $PM2_APP --update-env
+                        cd $APP_DIR
+                        npm install
+                        pm2 start app.js --name $PM2_APP --update-env
                         pm2 save
+                        pm2 flush
                         '''
                     } else {
                         echo "Deployment confirmed"
