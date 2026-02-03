@@ -1,9 +1,13 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     environment {
-        APP_DIR     = "/var/www/nodeapp"
-        BACKUP_DIR  = "/var/www/nodeapp_backup"
+        APP_DIR     = "${WORKSPACE}/nodeapp"
+        BACKUP_DIR  = "${WORKSPACE}/nodeapp_backup"
         PM2_APP     = "nodeapp"
         NODE_ENV    = "production"
     }
