@@ -42,7 +42,7 @@ pipeline {
             steps {
                 sh '''
                 cd $APP_DIR
-                npm ci
+                npm install
                 '''
             }
         }
