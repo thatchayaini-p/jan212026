@@ -60,14 +60,16 @@ pipeline {
             }
         }
 
-        stage('Deploy on Port 3000') {
+        ✅ stage('Deploy on Port 3000') {
             steps {
                 sh '''
-                echo "PORT=3000" > $APP_DIR/.env
-                echo "NODE_ENV=production" >> $APP_DIR/.env
+                cd $APP_DIR
 
-                pm2 stop $PM2_APP || true
-                pm2 start $APP_DIR/app.js --name $PM2_APP
+                echo "PORT=3000" > .env
+                echo "NODE_ENV=production" >> .env
+
+                pm2 delete $PM2_APP || true
+                pm2 start app.js --name $PM2_APP --update-env
                 pm2 save
                 '''
             }
@@ -89,10 +91,10 @@ pipeline {
 
                     if (decision == 'Yes') {
                         sh '''
-                        pm2 stop $PM2_APP || true
+                        pm2 delete $PM2_APP || true
                         rm -rf $APP_DIR
                         cp -r $BACKUP_DIR $APP_DIR
-                        pm2 start $APP_DIR/app.js --name $PM2_APP
+                        pm2 start $APP_DIR/app.js --name $PM2_APP --update-env
                         pm2 save
                         '''
                     } else {
